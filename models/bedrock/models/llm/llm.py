@@ -396,8 +396,29 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
         if model_info["support_system_prompts"] and system and len(system) > 0:
             parameters["system"] = system
 
-        if model_info["support_tool_use"] and tools:
-            parameters["toolConfig"] = self._convert_converse_tool_config(tools=tools)
+        if model_info["support_tool_use"]:
+            if tools: 
+                parameters["toolConfig"] = self._convert_converse_tool_config(tools=tools)
+            else:
+                parameters["toolConfig"] = {
+                    "tools": [
+                        {
+                            "toolSpec": {
+                                "name": "no_tools_available",
+                                "description": "No tools are currently available for use. Please respond without using any tools.",
+                                "inputSchema": {
+                                    "json": { 
+                                        "type": "object",
+                                        "properties": {},
+                                        "required": []
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+                logger.debug(f"Last Round: Dummy tool config added")
+
         try:
             # for issue #10976
             conversations_list = parameters["messages"]
@@ -739,7 +760,8 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
         return inference_config, additional_model_fields
 
     def _convert_converse_prompt_messages(self, prompt_messages: list[PromptMessage], model_id: str = None,
-        system_cache_checkpoint: bool = True, latest_two_messages_cache_checkpoint: bool = False) -> tuple[list, list[dict]]:
+        system_cache_checkpoint: bool = True, latest_two_messages_cache_checkpoint: bool = False,
+        tools: Optional[list[PromptMessageTool]] = None) -> tuple[list, list[dict]]:
         """
         Convert prompt messages to dict list and system
         Add cache points for supported models when enable_cache is True
@@ -771,10 +793,30 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
             system.append({"cachePoint": {"type": "default"}})
             logger.debug(f"Added cache point to system messages for model: {model_id}")
 
+        # Check if we're in the final iteration of function calling:
+        # - tools is None or empty (Function calling has cleared tools for last iteration)
+        # - AND we have ToolPromptMessage in history (indicating previous tool calls)
+        # This is specifically for Bedrock/Claude which requires toolConfig when messages contain tool use
+        has_tool_messages = any(isinstance(msg, ToolPromptMessage) for msg in prompt_messages)
+        is_final_iteration = (not tools or len(tools) == 0) and has_tool_messages
+
+
             # Process other messages
         for message in other_messages:
-            message_dict = self._convert_prompt_message_to_dict(message)
+            message_dict = self._convert_prompt_message_to_dict(message, is_final_iteration)
             prompt_message_dicts.append(message_dict)
+
+        # If this is the final iteration, insert instruction as the first user message
+        if is_final_iteration:
+            final_instruction_text = (
+                "IMPORTANT: DO NOT call any more tools. Summarize the information you have gathered from previous tool calls "
+            )
+            final_instruction_message = {
+                "role": "user",
+                "content": [{"text": final_instruction_text}]
+            }
+            # Insert at the end of prompt_message_dicts
+            prompt_message_dicts.append(final_instruction_message)
 
             # Only add cache point to messages if supported and latest_two_messages_cache_checkpoint is enabled
         if cache_config and "messages" in cache_config["supported_fields"] and latest_two_messages_cache_checkpoint:
