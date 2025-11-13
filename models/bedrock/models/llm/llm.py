@@ -399,7 +399,7 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
         if model_info["support_tool_use"]:
             if tools: 
                 parameters["toolConfig"] = self._convert_converse_tool_config(tools=tools)
-            else:
+            elif "toolResult" in str(prompt_message_dicts) or "toolUse" in str(prompt_message_dicts):
                 parameters["toolConfig"] = {
                     "tools": [
                         {
