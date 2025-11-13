@@ -399,6 +399,8 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
         if model_info["support_tool_use"]:
             if tools: 
                 parameters["toolConfig"] = self._convert_converse_tool_config(tools=tools)
+            #   function calling strategy clear all tools when LLM hits the max_iterations,
+            #   we need to add a dummy tool because Bedrock Claude model requires at least one tool in toolConfig when toolConfig and toolUse exist in the prompt messages.
             elif "toolResult" in str(prompt_message_dicts) or "toolUse" in str(prompt_message_dicts):
                 parameters["toolConfig"] = {
                     "tools": [
