@@ -806,7 +806,7 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
 
             # Process other messages
         for message in other_messages:
-            message_dict = self._convert_prompt_message_to_dict(message, is_final_iteration)
+            message_dict = self._convert_prompt_message_to_dict(message)
             prompt_message_dicts.append(message_dict)
 
         # If this is the final iteration, insert instruction as the first user message
