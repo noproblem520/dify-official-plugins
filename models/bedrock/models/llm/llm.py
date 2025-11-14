@@ -382,7 +382,8 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
             prompt_messages,
             model_id=cache_config_model_id,
             system_cache_checkpoint=system_cache_checkpoint,
-            latest_two_messages_cache_checkpoint=latest_two_messages_cache_checkpoint
+            latest_two_messages_cache_checkpoint=latest_two_messages_cache_checkpoint,
+            tools=tools
         )
         inference_config, additional_model_fields = self._convert_converse_api_model_parameters(model_parameters, stop)
 
